@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>DB 관광지 + Kakao Map 테스트</title>
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=여기에_APPKEY&libraries=services"></script>
+    <style>
+        body { display:flex; margin:0; font-family:sans-serif; }
+        aside { width:300px; border-right:1px solid #ccc; overflow-y:auto; padding:10px; }
+        #map { flex:1; height:100vh; }
+        .card { border:1px solid #ddd; padding:8px; margin-bottom:8px; cursor:pointer; }
+        .card:hover { background:#f8f8f8; }
+    </style>
+</head>
+<body>
+
+<aside>
+    <h2>DB 관광지 목록</h2>
+    <div id="dbList"></div>
+</aside>
+
+<div id="map"></div>
+
+<script>
+    kakao.maps.load(function() {
+        const map = new kakao.maps.Map(document.getElementById('map'), {
+            center: new kakao.maps.LatLng(37.5665, 126.9780),
+            level: 6
+        });
+        const infowindow = new kakao.maps.InfoWindow({ zIndex:1 });
+        const geocoder = new kakao.maps.services.Geocoder();
+        const $dbList = document.getElementById('dbList');
+        let dbMarkers = [];
+
+        // DB 데이터 fetch
+        fetch("/api/travels")
+            .then(res => res.json())
+            .then(data => {
+                console.log("DB data:", data); // ✅ 확인용
+
+                if(data.length === 0) {
+                    $dbList.innerHTML = "<p>DB에 관광지 데이터가 없습니다.</p>";
+                    return;
+                }
+
+                data.forEach((item, idx) => {
+                    // 카드 생성
+                    const card = document.createElement("div");
+                    card.className = "card";
+                    card.innerHTML = `
+                    <h3>${idx+1}. ${item.title}</h3>
+                    <p>${item.address}</p>
+                    <p class="small muted">전화: ${item.phone || '-'}</p>
+                `;
+                    $dbList.appendChild(card);
+
+                    // 카드 클릭 시 마커 표시
+                    card.onclick = () => {
+                        geocoder.addressSearch(item.address, function(result, status) {
+                            if(status === kakao.maps.services.Status.OK) {
+                                const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+
+                                // 기존 마커 제거
+                                dbMarkers.forEach(m => m.setMap(null));
+                                dbMarkers = [];
+
+                                // 새 마커
+                                const marker = new kakao.maps.Marker({
+                                    map: map,
+                                    position: coords
+                                });
+                                dbMarkers.push(marker);
+
+                                // 인포윈도우
+                                const infoHtml = `
+                                <div style="padding:8px; max-width:200px;">
+                                    <strong>${item.title}</strong><br>
+                                    ${item.address}<br>
+                                    전화: ${item.phone || '-'}<br>
+                                    ${item.description || ''}
+                                </div>
+                            `;
+                                infowindow.setContent(infoHtml);
+                                infowindow.open(map, marker);
+
+                                // 지도 이동
+                                map.panTo(coords);
+                            } else {
+                                alert("주소를 찾을 수 없습니다: " + item.address);
+                            }
+                        });
+                    };
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                $dbList.innerHTML = "<p>DB 데이터를 가져오지 못했습니다.</p>";
+            });
+    });
+</script>
+
+</body>
+</html>
