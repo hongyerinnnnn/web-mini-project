@@ -16,9 +16,9 @@ public class TravelRestController {
         this.travelService = travelService;
     }
 
+    // ✅ 프론트와 URL 통일 → /api/travels
     @GetMapping("/api/travels")
     public List<TravelDTO> getTravels() {
-        // DB에 데이터가 없으면 빈 리스트 반환
         return travelService.getAllTravel();
     }
 }

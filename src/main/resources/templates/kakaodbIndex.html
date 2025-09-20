@@ -1,103 +1,122 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>DB 관광지 + Kakao Map 테스트</title>
-    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=여기에_APPKEY&libraries=services"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>관광 명소 찾기 (Kakao Map + DB)</title>
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=b128209c9ae4dab493ade5f50b63bdcb&autoload=false&libraries=services,clusterer"></script>
     <style>
-        body { display:flex; margin:0; font-family:sans-serif; }
-        aside { width:300px; border-right:1px solid #ccc; overflow-y:auto; padding:10px; }
-        #map { flex:1; height:100vh; }
-        .card { border:1px solid #ddd; padding:8px; margin-bottom:8px; cursor:pointer; }
-        .card:hover { background:#f8f8f8; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Arial; }
+        header { padding: 14px 18px; border-bottom: 1px solid #eee; display:flex; gap:12px; align-items:center; }
+        header h1 { font-size: 18px; margin: 0 8px 0 0; }
+        header .hint { color:#666; font-size: 13px; }
+        .container { display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 60px); }
+        .left { border-right: 1px solid #eee; padding: 12px; overflow: auto; }
+        .left h2 { margin: 6px 0 10px; font-size: 16px; }
+        .results { margin-top: 12px; display: grid; gap:8px; }
+        .card { border:1px solid #eee; border-radius:12px; padding:10px; cursor:pointer; }
+        .card h3 { margin: 0 0 6px; font-size: 15px; }
+        .card p { margin: 2px 0; color:#555; font-size: 13px; }
+        .map { position: relative; }
+        #map { width: 100%; height: 100%; min-height: 420px; }
     </style>
 </head>
 <body>
-
-<aside>
-    <h2>DB 관광지 목록</h2>
-    <div id="dbList"></div>
-</aside>
-
-<div id="map"></div>
+<header>
+    <h1>관광 명소 찾기</h1>
+    <span class="hint">Kakao Maps + DB 연동</span>
+</header>
+<div class="container">
+    <aside class="left">
+        <h2>DB 관광지 목록</h2>
+        <div class="results" id="dbResults"></div>
+    </aside>
+    <main class="map">
+        <div id="map"></div>
+    </main>
+</div>
 
 <script>
     kakao.maps.load(function() {
-        const map = new kakao.maps.Map(document.getElementById('map'), {
-            center: new kakao.maps.LatLng(37.5665, 126.9780),
-            level: 6
-        });
-        const infowindow = new kakao.maps.InfoWindow({ zIndex:1 });
-        const geocoder = new kakao.maps.services.Geocoder();
-        const $dbList = document.getElementById('dbList');
+        const mapContainer = document.getElementById('map');
+        const mapOption = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 6 };
+        const map = new kakao.maps.Map(mapContainer, mapOption);
+        const infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
+        const $dbResults = document.getElementById('dbResults');
         let dbMarkers = [];
 
-        // DB 데이터 fetch
-        fetch("/api/travels")
-            .then(res => res.json())
-            .then(data => {
-                console.log("DB data:", data); // ✅ 확인용
+        function clearMarkers() {
+            dbMarkers.forEach(m => m.setMap(null));
+            dbMarkers = [];
+        }
 
-                if(data.length === 0) {
-                    $dbList.innerHTML = "<p>DB에 관광지 데이터가 없습니다.</p>";
-                    return;
-                }
+        // DB에서 관광지 목록 가져오기
+        async function loadTravelData() {
+            try {
+                const res = await fetch("/api/travels"); // Spring Controller와 일치
+                const data = await res.json();
+                renderTravelList(data);
+            } catch (e) {
+                console.error("DB 데이터 로드 실패", e);
+            }
+        }
 
-                data.forEach((item, idx) => {
-                    // 카드 생성
-                    const card = document.createElement("div");
-                    card.className = "card";
-                    card.innerHTML = `
-                    <h3>${idx+1}. ${item.title}</h3>
-                    <p>${item.address}</p>
-                    <p class="small muted">전화: ${item.phone || '-'}</p>
-                `;
-                    $dbList.appendChild(card);
+        function renderTravelList(items) {
+            $dbResults.innerHTML = "";
+            clearMarkers();
 
-                    // 카드 클릭 시 마커 표시
+            items.forEach((t, idx) => {
+                const card = document.createElement("div");
+                card.className = "card";
+                card.innerHTML = `
+                <h3>${idx+1}. ${t.title}</h3>
+                <p>${t.description || ""}</p>
+                <p class="small">📍 ${t.address}</p>
+                <p class="small">☎ ${t.phone || "-"}</p>
+            `;
+                $dbResults.appendChild(card);
+
+                // lat/lng가 있는 경우에만 클릭 시 지도 이동 및 마커
+                if (t.lat && t.lng) {
+                    const pos = new kakao.maps.LatLng(t.lat, t.lng);
+                    const marker = new kakao.maps.Marker({ position: pos });
+                    marker.setMap(map);
+                    dbMarkers.push(marker);
+
+                    // 마커 클릭 시 인포윈도우
+                    kakao.maps.event.addListener(marker, "click", function() {
+                        const html = `
+                        <div style="padding:6px 8px">
+                            <strong>${t.title}</strong><br>
+                            ${t.address}<br>
+                            ${t.phone || ""}
+                        </div>`;
+                        infowindow.setContent(html);
+                        infowindow.open(map, marker);
+                    });
+
+                    // 카드 클릭 시 마커 중심으로 이동
                     card.onclick = () => {
-                        geocoder.addressSearch(item.address, function(result, status) {
-                            if(status === kakao.maps.services.Status.OK) {
-                                const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
-
-                                // 기존 마커 제거
-                                dbMarkers.forEach(m => m.setMap(null));
-                                dbMarkers = [];
-
-                                // 새 마커
-                                const marker = new kakao.maps.Marker({
-                                    map: map,
-                                    position: coords
-                                });
-                                dbMarkers.push(marker);
-
-                                // 인포윈도우
-                                const infoHtml = `
-                                <div style="padding:8px; max-width:200px;">
-                                    <strong>${item.title}</strong><br>
-                                    ${item.address}<br>
-                                    전화: ${item.phone || '-'}<br>
-                                    ${item.description || ''}
-                                </div>
-                            `;
-                                infowindow.setContent(infoHtml);
-                                infowindow.open(map, marker);
-
-                                // 지도 이동
-                                map.panTo(coords);
-                            } else {
-                                alert("주소를 찾을 수 없습니다: " + item.address);
-                            }
-                        });
+                        map.panTo(pos);
+                        infowindow.setContent(`
+                        <div style="padding:6px 8px">
+                            <strong>${t.title}</strong><br>
+                            ${t.address}<br>
+                            ${t.phone || ""}
+                        </div>`);
+                        infowindow.open(map, marker);
                     };
-                });
-            })
-            .catch(err => {
-                console.error(err);
-                $dbList.innerHTML = "<p>DB 데이터를 가져오지 못했습니다.</p>";
+                } else {
+                    // lat/lng 없으면 카드 클릭해도 안내
+                    card.onclick = () => alert("이 관광지는 좌표 정보가 없습니다.");
+                }
             });
+        }
+
+        // 최초 실행
+        loadTravelData();
     });
 </script>
-
 </body>
 </html>

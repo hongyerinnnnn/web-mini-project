@@ -4,8 +4,10 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.multi.travel.mapper.TravelMapper">
-    <select id="selectAll" resultType="com.multi.travel.dto.TravelDTO">
-        SELECT no, district, title, description, address, phone
+
+    <select id="findAll" resultType="com.multi.travel.dto.TravelDTO">
+        SELECT no, district, title, description, address, phone, lat, lng
         FROM travel
     </select>
+
 </mapper>
