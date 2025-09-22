@@ -6,8 +6,20 @@
 <mapper namespace="com.multi.travel.mapper.TravelMapper">
 
     <select id="findAll" resultType="com.multi.travel.dto.TravelDTO">
-        SELECT no, district, title, description, address, phone, lat, lng
+        SELECT no, district, title, description, address, phone, lat AS lat, lng AS lng
         FROM travel
+        <if test="query != null and query != ''">
+            WHERE title LIKE CONCAT('%', #{query}, '%')
+        </if>
+        ORDER BY no
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM travel
+        <if test="query != null and query != ''">
+            WHERE title LIKE CONCAT('%', #{query}, '%')
+        </if>
     </select>
 
 </mapper>

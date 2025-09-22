@@ -16,7 +16,13 @@ public class TravelServiceImpl implements TravelService {
     }
 
     @Override
-    public List<TravelDTO> getAllTravel() {
-        return travelMapper.findAll();
+    public List<TravelDTO> getAllTravel(int page, int size, String query) {
+        int offset = (page - 1) * size;
+        return travelMapper.findAll(offset, size, query);
+    }
+
+    @Override
+    public int getTotalCount(String query) {
+        return travelMapper.countAll(query);
     }
 }

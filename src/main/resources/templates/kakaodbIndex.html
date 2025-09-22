@@ -14,11 +14,17 @@
         .container { display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 60px); }
         .left { border-right: 1px solid #eee; padding: 12px; overflow: auto; }
         .left h2 { margin: 6px 0 10px; font-size: 16px; }
+        .search-box { display:flex; margin-bottom:10px; gap:6px; }
+        .search-box input { flex:1; padding:6px; border:1px solid #ccc; border-radius:6px; }
+        .search-box button { padding:6px 12px; border:none; background:#333; color:#fff; border-radius:6px; cursor:pointer; }
         .results { margin-top: 12px; display: grid; gap:8px; }
         .card { border:1px solid #eee; border-radius:12px; padding:10px; cursor:pointer; }
         .card h3 { margin: 0; font-size: 15px; }
         .map { position: relative; }
         #map { width: 100%; height: 100%; min-height: 420px; }
+        .pagination { display:flex; gap:4px; margin:8px 0; flex-wrap:wrap; }
+        .pagination button { padding:4px 6px; border:none; border-radius:4px; background:none; cursor:pointer; font-size:12px; color:#333; }
+        .pagination button.active { font-weight:bold; text-decoration:underline; color:#000; }
     </style>
 </head>
 <body>
@@ -29,7 +35,12 @@
 <div class="container">
     <aside class="left">
         <h2>DB 관광지 목록</h2>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="검색어 입력...">
+            <button id="searchBtn">검색</button>
+        </div>
         <div class="results" id="dbResults"></div>
+        <div class="pagination" id="pagination"></div>
     </aside>
     <main class="map">
         <div id="map"></div>
@@ -43,19 +54,30 @@
         const map = new kakao.maps.Map(mapContainer, mapOption);
         const infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
         const $dbResults = document.getElementById('dbResults');
+        const $pagination = document.getElementById('pagination');
+        const $searchInput = document.getElementById('searchInput');
+        const $searchBtn = document.getElementById('searchBtn');
+
         let dbMarkers = [];
+        let currentPage = 1;
+        const pageSize = 10;
+        let currentQuery = "";
 
         function clearMarkers() {
             dbMarkers.forEach(m => m.setMap(null));
             dbMarkers = [];
         }
 
-        async function loadTravelData() {
+        async function loadTravelData(page = 1, query = "") {
             try {
-                const res = await fetch("/api/travels"); // 전체 명소 목록
-                const data = await res.json();
-                renderTravelList(data);
-            } catch (e) {
+                let url = `/api/travels?page=${page}&size=${pageSize}`;
+                if(query) url += `&query=${encodeURIComponent(query)}`;
+                const res = await fetch(url);
+                const result = await res.json();
+                console.log(result); // 🔍 확인용
+                renderTravelList(result.travels);
+                renderPagination(result.totalPages, result.currentPage);
+            } catch(e) {
                 console.error("DB 데이터 로드 실패", e);
             }
         }
@@ -64,41 +86,39 @@
             $dbResults.innerHTML = "";
             clearMarkers();
 
-            items.forEach((t, idx) => {
+            items.forEach((t) => {
                 const card = document.createElement("div");
                 card.className = "card";
-                card.innerHTML = `<h3>${idx+1}. ${t.title}</h3>`; // 제목만 표시
+                card.innerHTML = `<h3>${t.title}</h3>`;
                 $dbResults.appendChild(card);
 
-                if (t.lat && t.lng) {
+                if(t.lat && t.lng) {
                     const pos = new kakao.maps.LatLng(t.lat, t.lng);
                     const marker = new kakao.maps.Marker({ position: pos });
                     marker.setMap(map);
                     dbMarkers.push(marker);
 
-                    // 마커 클릭 시 인포윈도우
                     kakao.maps.event.addListener(marker, "click", function() {
                         const html = `
-                        <div style="padding:6px 8px">
-                            <strong>${t.title}</strong><br>
-                            ${t.description || ""}<br>
-                            📍 ${t.address}<br>
-                            ☎ ${t.phone || "-"}
-                        </div>`;
+                    <div style="padding:6px 8px">
+                        <strong>${t.title}</strong><br>
+                        ${t.description || ""}<br>
+                        📍 ${t.address}<br>
+                        ☎ ${t.phone || "-"}
+                    </div>`;
                         infowindow.setContent(html);
                         infowindow.open(map, marker);
                     });
 
-                    // 카드 클릭 시 마커 중심으로 이동 + 정보 표시
                     card.onclick = () => {
                         map.panTo(pos);
                         const html = `
-                        <div style="padding:6px 8px">
-                            <strong>${t.title}</strong><br>
-                            ${t.description || ""}<br>
-                            📍 ${t.address}<br>
-                            ☎ ${t.phone || "-"}
-                        </div>`;
+                    <div style="padding:6px 8px">
+                        <strong>${t.title}</strong><br>
+                        ${t.description || ""}<br>
+                        📍 ${t.address}<br>
+                        ☎ ${t.phone || "-"}
+                    </div>`;
                         infowindow.setContent(html);
                         infowindow.open(map, marker);
                     };
@@ -107,6 +127,30 @@
                 }
             });
         }
+
+        function renderPagination(totalPages, current) {
+            $pagination.innerHTML = "";
+            for(let i=1; i<=totalPages; i++) {
+                const btn = document.createElement("button");
+                btn.textContent = i;
+                if(i===current) btn.classList.add("active");
+                btn.onclick = () => {
+                    currentPage = i;
+                    loadTravelData(i, currentQuery);
+                };
+                $pagination.appendChild(btn);
+            }
+        }
+
+        $searchBtn.onclick = () => {
+            currentQuery = $searchInput.value.trim();
+            currentPage = 1;
+            loadTravelData(currentPage, currentQuery);
+        };
+
+        $searchInput.addEventListener("keypress", (e) => {
+            if(e.key === "Enter") $searchBtn.click();
+        });
 
         loadTravelData();
     });
