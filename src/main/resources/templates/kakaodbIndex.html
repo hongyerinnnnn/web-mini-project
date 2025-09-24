@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>관광 명소 찾기 (Kakao Map + 이미지 확대)</title>
-    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=b128209c9ae4dab493ade5f50b63bdcb&autoload=false&libraries=services,clusterer"></script>
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4caaf2cb0e09303d4dd13d3fb5ff15e9&autoload=false&libraries=services,clusterer"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Arial; }
@@ -89,7 +89,8 @@
 
         async function fetchImages(title) {
             const serviceKey = "490dff3a74450adae8e1524024697a4e35ce97f3bb37436d4be589e01bcd36a5";
-            const keyword = title.slice(0, 2); // 앞 2글자
+            const cleanTitle = title.replace(/\s/g, '');
+            const keyword = title.slice(4, 6); // 앞 2글자
             const url = `https://apis.data.go.kr/B551011/KorService2/searchKeyword2?serviceKey=${serviceKey}&MobileOS=ETC&MobileApp=AppTest&_type=json&keyword=${encodeURIComponent(keyword)}&numOfRows=2&pageNo=1`;
             try {
                 const res = await fetch(url);
