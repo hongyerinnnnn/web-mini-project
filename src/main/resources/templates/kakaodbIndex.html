@@ -158,6 +158,56 @@
                                 $imgModal.style.display = "flex";
                             }
                         });
+
+                        // 🔹 주변 관광지 5개 표시
+                        clearMarkers(); // 기존 마커 삭제
+                        dbMarkers.push(marker); // 클릭한 마커 유지
+
+                        try {
+                            let url = `/api/travels?nearLat=${t.lat}&nearLng=${t.lng}&limit=5`;
+                            const res = await fetch(url);
+                            const nearby = await res.json();
+                            nearby.travels.forEach(nt => {
+                                if(nt.lat && nt.lng && nt.title !== t.title){
+                                    const nPos = new kakao.maps.LatLng(nt.lat, nt.lng);
+                                    const nMarker = new kakao.maps.Marker({
+                                        position: nPos,
+                                        image: new kakao.maps.MarkerImage(
+                                            'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+                                            new kakao.maps.Size(24,35)
+                                        )
+                                    });
+                                    nMarker.setMap(map);
+                                    dbMarkers.push(nMarker);
+
+                                    const showNearbyInfo = async () => {
+                                        const nImgs = await fetchImages(nt.title);
+                                        const nHtmlImg = nImgs.map(url=>`<img class="travel-img" src="${url}" alt="${nt.title}">`).join("");
+                                        const nHtml = `
+                                            <div style="padding:6px 8px; max-width:250px;">
+                                                <strong>${nt.title}</strong><br>
+                                                ${nt.description||""}<br>
+                                                📍 ${nt.address}<br>
+                                                ☎ ${nt.phone||"-"}<br>
+                                                ${nHtmlImg}
+                                            </div>`;
+                                        infowindow.setContent(nHtml);
+                                        infowindow.open(map, nMarker);
+
+                                        const imgs = document.querySelectorAll(".travel-img");
+                                        imgs.forEach(img=>{
+                                            img.onclick = ()=> {
+                                                $modalImg.src = img.src;
+                                                $imgModal.style.display = "flex";
+                                            }
+                                        });
+                                    };
+                                    kakao.maps.event.addListener(nMarker,"click",showNearbyInfo);
+                                }
+                            });
+                        } catch(e) {
+                            console.error("주변 관광지 불러오기 실패", e);
+                        }
                     };
 
                     kakao.maps.event.addListener(marker,"click",showInfo);
