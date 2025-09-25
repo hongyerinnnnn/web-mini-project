@@ -7,30 +7,68 @@
     <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4caaf2cb0e09303d4dd13d3fb5ff15e9&autoload=false&libraries=services,clusterer"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Arial; }
-        header { padding: 14px 18px; border-bottom: 1px solid #eee; display:flex; gap:12px; align-items:center; }
-        header h1 { font-size: 18px; margin: 0 8px 0 0; }
-        header .hint { color:#666; font-size: 13px; }
-        .container { display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 60px); }
-        .left { border-right: 1px solid #eee; padding: 12px; overflow: auto; }
-        .left h2 { margin: 6px 0 10px; font-size: 16px; }
+        body { margin:0; font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Arial; }
+        header { padding:14px 18px; border-bottom:1px solid #eee; display:flex; gap:12px; align-items:center; }
+        header h1 { font-size:18px; margin:0 8px 0 0; }
+        header .hint { color:#666; font-size:13px; }
+        .container { display:grid; grid-template-columns:380px 1fr; height:calc(100vh - 60px); }
+        .left { border-right:1px solid #eee; padding:12px; overflow:auto; }
+        .left h2 { margin:6px 0 10px; font-size:16px; }
         .search-box { display:flex; margin-bottom:10px; gap:6px; }
         .search-box input { flex:1; padding:6px; border:1px solid #ccc; border-radius:6px; }
         .search-box button { padding:6px 12px; border:none; background:#333; color:#fff; border-radius:6px; cursor:pointer; }
-        .results { margin-top: 12px; display: grid; gap:8px; }
-        .card { border:1px solid #eee; border-radius:12px; padding:10px; cursor:pointer; }
-        .card h3 { margin: 0; font-size: 15px; }
-        .map { position: relative; }
-        #map { width: 100%; height: 100%; min-height: 420px; }
+        .results { margin-top:12px; display:grid; gap:12px; }
+
+        /* 카드 스타일 */
+        .card {
+            border-radius:12px;
+            background:#fff;
+            box-shadow:0 4px 12px rgba(0,0,0,0.08);
+            padding:12px;
+            cursor:pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow:0 8px 20px rgba(0,0,0,0.15); }
+        .card h3 { margin:0; font-size:16px; color:#333; }
+        .card-images { display:flex; gap:6px; flex-wrap:wrap; }
+        .card-images img { width:80px; height:60px; border-radius:6px; object-fit:cover; cursor:pointer; transition: transform 0.2s, border 0.2s; border:2px solid transparent; }
+        .card-images img:hover { transform: scale(1.1); }
+        .card-images img.selected { border:2px solid #007aff; }
+
+        /* 맵 및 페이징 */
+        .map { position:relative; }
+        #map { width:100%; height:100%; min-height:420px; }
         .pagination { display:flex; gap:4px; margin:8px 0; flex-wrap:wrap; }
         .pagination button { padding:4px 6px; border:none; border-radius:4px; background:none; cursor:pointer; font-size:12px; color:#333; }
         .pagination button.active { font-weight:bold; text-decoration:underline; color:#000; }
-        img.travel-img { width: 100px; height: 70px; border-radius: 6px; margin-top: 6px; margin-right: 4px; cursor:pointer; }
 
-        /* 모달 스타일 */
+        /* 모달 */
         #imgModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:999; }
-        #imgModal img { max-width:90%; max-height:90%; border-radius:8px; }
+        #imgModal.show { display:flex; }
+        #imgModal img { max-width:90%; max-height:90%; border-radius:8px; transform: scale(0.9); transition: transform 0.3s; }
+        #imgModal.show img { transform: scale(1); }
         #imgModal .close { position:absolute; top:20px; right:30px; font-size:24px; color:white; cursor:pointer; }
+
+        /* 인포윈도우 스타일 */
+        .custom-infowindow {
+            font-family:Pretendard, Arial, sans-serif;
+            background:#fff;
+            padding:14px;
+            border-radius:12px;
+            box-shadow:0 6px 20px rgba(0,0,0,0.15);
+            max-width:300px;
+            line-height:1.5;
+        }
+        .custom-infowindow strong { font-size:16px; color:#222; display:block; margin-bottom:6px; }
+        .custom-infowindow p { margin:2px 0; font-size:13px; color:#555; word-break:break-word; }
+        .custom-infowindow .infowindow-images { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+        .custom-infowindow .infowindow-images img { width:60px; height:45px; border-radius:6px; object-fit:cover; cursor:pointer; transition: transform 0.2s, border 0.2s; border:2px solid transparent; }
+        .custom-infowindow .infowindow-images img:hover { transform: scale(1.1); }
+        .custom-infowindow .infowindow-images img.selected { border:2px solid #007aff; }
+
     </style>
 </head>
 <body>
@@ -53,168 +91,136 @@
     </main>
 </div>
 
-<!-- 이미지 확대 모달 -->
 <div id="imgModal">
     <span class="close">&times;</span>
     <img src="" alt="확대 이미지">
 </div>
 
 <script>
-    kakao.maps.load(function() {
+    kakao.maps.load(function(){
         const mapContainer = document.getElementById('map');
-        const mapOption = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 6 };
-        const map = new kakao.maps.Map(mapContainer, mapOption);
-        const infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
+        const mapOption = { center:new kakao.maps.LatLng(37.5665,126.9780), level:6 };
+        const map = new kakao.maps.Map(mapContainer,mapOption);
+        const infowindow = new kakao.maps.InfoWindow({zIndex:1});
         const $dbResults = document.getElementById('dbResults');
         const $pagination = document.getElementById('pagination');
         const $searchInput = document.getElementById('searchInput');
         const $searchBtn = document.getElementById('searchBtn');
+        const $imgModal = document.getElementById('imgModal');
+        const $modalImg = $imgModal.querySelector('img');
+        const $modalClose = $imgModal.querySelector('.close');
 
         let dbMarkers = [];
         let currentPage = 1;
         const pageSize = 10;
         let currentQuery = "";
+        let activeCard = null; // 이전 카드 추적
 
-        const $imgModal = document.getElementById('imgModal');
-        const $modalImg = $imgModal.querySelector('img');
-        const $modalClose = $imgModal.querySelector('.close');
+        $modalClose.onclick = () => $imgModal.classList.remove("show");
+        $imgModal.onclick = (e) => { if(e.target === $imgModal) $imgModal.classList.remove("show"); }
 
-        $modalClose.onclick = () => $imgModal.style.display = "none";
-        $imgModal.onclick = (e) => { if(e.target=== $imgModal) $imgModal.style.display="none"; }
+        function clearMarkers(){ dbMarkers.forEach(m=>m.setMap(null)); dbMarkers=[]; }
 
-        function clearMarkers() {
-            dbMarkers.forEach(m => m.setMap(null));
-            dbMarkers = [];
-        }
-
-        async function fetchImages(title) {
+        async function fetchImages(title){
             const serviceKey = "490dff3a74450adae8e1524024697a4e35ce97f3bb37436d4be589e01bcd36a5";
-            const cleanTitle = title.replace(/\s/g, '');
-            const keyword = title.slice(4, 6); // 앞 2글자
+            const keyword = title.slice(4,6);
             const url = `https://apis.data.go.kr/B551011/KorService2/searchKeyword2?serviceKey=${serviceKey}&MobileOS=ETC&MobileApp=AppTest&_type=json&keyword=${encodeURIComponent(keyword)}&numOfRows=2&pageNo=1`;
-            try {
+            try{
                 const res = await fetch(url);
                 const data = await res.json();
                 const items = data?.response?.body?.items?.item;
                 if(!items) return ["/img/default.jpg"];
-                const arr = Array.isArray(items) ? items : [items];
+                const arr = Array.isArray(items)?items:[items];
                 const imgs = arr.map(i=>i.firstimage||i.firstimage2).filter(Boolean);
                 return imgs.length ? imgs : ["/img/default.jpg"];
-            } catch(e) {
-                console.error("이미지 불러오기 실패", e);
-                return ["/img/default.jpg"];
-            }
+            }catch(e){ console.error("이미지 불러오기 실패",e); return ["/img/default.jpg"]; }
         }
 
-        async function loadTravelData(page = 1, query = "") {
-            try {
-                let url = `/api/travels?page=${page}&size=${pageSize}`;
-                if(query) url += `&query=${encodeURIComponent(query)}`;
+        async function loadTravelData(page=1, query=""){
+            try{
+                let url=`/api/travels?page=${page}&size=${pageSize}`;
+                if(query) url+=`&query=${encodeURIComponent(query)}`;
                 const res = await fetch(url);
                 const result = await res.json();
                 renderTravelList(result.travels);
-                renderPagination(result.totalPages, result.currentPage);
-            } catch(e) {
-                console.error("DB 데이터 로드 실패", e);
-            }
+                renderPagination(result.totalPages,result.currentPage);
+            }catch(e){ console.error("DB 데이터 로드 실패",e); }
         }
 
-        async function renderTravelList(items) {
+        async function renderTravelList(items){
             $dbResults.innerHTML = "";
             clearMarkers();
 
-            for(const t of items) {
+            for(const t of items){
                 const card = document.createElement("div");
                 card.className = "card";
+                const imgContainer = document.createElement("div");
+                imgContainer.className = "card-images";
                 card.innerHTML = `<h3>${t.title}</h3>`;
+                card.appendChild(imgContainer);
                 $dbResults.appendChild(card);
 
-                if(t.lat && t.lng) {
-                    const pos = new kakao.maps.LatLng(t.lat, t.lng);
-                    const marker = new kakao.maps.Marker({ position: pos });
+                if(t.lat && t.lng){
+                    const pos = new kakao.maps.LatLng(t.lat,t.lng);
+                    const marker = new kakao.maps.Marker({position:pos});
                     marker.setMap(map);
                     dbMarkers.push(marker);
 
-                    const showInfo = async () => {
-                        const imgUrls = await fetchImages(t.title);
-                        const imgHtml = imgUrls.map(url=>`<img class="travel-img" src="${url}" alt="${t.title}">`).join("");
-                        const html = `
-                    <div style="padding:6px 8px; max-width:250px;">
-                        <strong>${t.title}</strong><br>
-                        ${t.description||""}<br>
-                        📍 ${t.address}<br>
-                        ☎ ${t.phone||"-"}<br>
-                        ${imgHtml}
-                    </div>`;
-                        infowindow.setContent(html);
-                        infowindow.open(map, marker);
-                        map.setCenter(pos);
+                    const showInfo = async ()=>{
+                        // 이전 카드 이미지 닫기
+                        if(activeCard && activeCard !== card){
+                            const prevImgs = activeCard.querySelector('.card-images');
+                            prevImgs.classList.remove('show');
+                            prevImgs.innerHTML = "";
+                        }
+                        activeCard = card;
 
-                        // 이미지 클릭 이벤트
-                        const imgs = document.querySelectorAll(".travel-img");
+                        // 이미지 가져오기
+                        const imgUrls = await fetchImages(t.title);
+                        imgContainer.classList.add('show');
+                        imgContainer.innerHTML = imgUrls.map(url => `<img src="${url}" alt="${t.title}">`).join("");
+
+                        // 카드 이미지 클릭 이벤트
+                        const imgs = imgContainer.querySelectorAll("img");
                         imgs.forEach(img=>{
-                            img.onclick = ()=> {
+                            img.onclick = (e)=>{
+                                imgs.forEach(i=>i.classList.remove("selected"));
+                                img.classList.add("selected");
                                 $modalImg.src = img.src;
-                                $imgModal.style.display = "flex";
+                                $imgModal.classList.add("show");
+                                e.stopPropagation();
                             }
                         });
 
-                        // 🔹 주변 관광지 5개 표시
-                        clearMarkers(); // 기존 마커 삭제
-                        dbMarkers.push(marker); // 클릭한 마커 유지
+                        // 인포윈도우
+                        const html = `<div class="custom-infowindow">
+                        <strong>${t.title}</strong>
+                        <p>${t.description || ""}</p>
+                        <p>📍 ${t.address}</p>
+                        <p>☎ ${t.phone || "-"}</p>
+                        <div class="infowindow-images">${imgUrls.map(url => `<img class="travel-img" src="${url}" alt="${t.title}">`).join("")}</div>
+                    </div>`;
+                        infowindow.setContent(html);
+                        infowindow.open(map,marker);
+                        map.setCenter(pos);
 
-                        try {
-                            let url = `/api/travels?nearLat=${t.lat}&nearLng=${t.lng}&limit=5`;
-                            const res = await fetch(url);
-                            const nearby = await res.json();
-                            nearby.travels.forEach(nt => {
-                                if(nt.lat && nt.lng && nt.title !== t.title){
-                                    const nPos = new kakao.maps.LatLng(nt.lat, nt.lng);
-                                    const nMarker = new kakao.maps.Marker({
-                                        position: nPos,
-                                        image: new kakao.maps.MarkerImage(
-                                            'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
-                                            new kakao.maps.Size(24,35)
-                                        )
-                                    });
-                                    nMarker.setMap(map);
-                                    dbMarkers.push(nMarker);
+                        // 인포윈도우 이미지 클릭
+                        const infoImgs = document.querySelectorAll(".travel-img");
+                        infoImgs.forEach(img=>{
+                            img.onclick = (e)=>{
+                                $modalImg.src = img.src;
+                                $imgModal.classList.add("show");
+                                e.stopPropagation();
+                            }
+                        });
 
-                                    const showNearbyInfo = async () => {
-                                        const nImgs = await fetchImages(nt.title);
-                                        const nHtmlImg = nImgs.map(url=>`<img class="travel-img" src="${url}" alt="${nt.title}">`).join("");
-                                        const nHtml = `
-                                            <div style="padding:6px 8px; max-width:250px;">
-                                                <strong>${nt.title}</strong><br>
-                                                ${nt.description||""}<br>
-                                                📍 ${nt.address}<br>
-                                                ☎ ${nt.phone||"-"}<br>
-                                                ${nHtmlImg}
-                                            </div>`;
-                                        infowindow.setContent(nHtml);
-                                        infowindow.open(map, nMarker);
-
-                                        const imgs = document.querySelectorAll(".travel-img");
-                                        imgs.forEach(img=>{
-                                            img.onclick = ()=> {
-                                                $modalImg.src = img.src;
-                                                $imgModal.style.display = "flex";
-                                            }
-                                        });
-                                    };
-                                    kakao.maps.event.addListener(nMarker,"click",showNearbyInfo);
-                                }
-                            });
-                        } catch(e) {
-                            console.error("주변 관광지 불러오기 실패", e);
-                        }
+                        clearMarkers();
+                        dbMarkers.push(marker);
                     };
 
                     kakao.maps.event.addListener(marker,"click",showInfo);
                     card.onclick = showInfo;
-                } else {
-                    card.onclick = ()=>alert("이 관광지는 좌표 정보가 없습니다.");
-                }
+                } else { card.onclick = ()=>alert("이 관광지는 좌표 정보가 없습니다."); }
             }
         }
 
@@ -222,16 +228,16 @@
             $pagination.innerHTML="";
             for(let i=1;i<=totalPages;i++){
                 const btn = document.createElement("button");
-                btn.textContent=i;
+                btn.textContent = i;
                 if(i===current) btn.classList.add("active");
-                btn.onclick=()=>{currentPage=i; loadTravelData(i,currentQuery);}
+                btn.onclick=()=>{ currentPage=i; loadTravelData(i,currentQuery); }
                 $pagination.appendChild(btn);
             }
         }
 
         $searchBtn.onclick=()=>{
-            currentQuery=$searchInput.value.trim();
-            currentPage=1;
+            currentQuery = $searchInput.value.trim();
+            currentPage = 1;
             loadTravelData(currentPage,currentQuery);
         };
         $searchInput.addEventListener("keypress",(e)=>{if(e.key==="Enter") $searchBtn.click();});
