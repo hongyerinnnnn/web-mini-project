@@ -6,79 +6,312 @@
     <title>관광 명소 찾기</title>
     <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4caaf2cb0e09303d4dd13d3fb5ff15e9&autoload=false&libraries=services,clusterer"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { margin:0; font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Arial; }
-        header { padding:14px 18px; border-bottom:1px solid #eee; display:flex; gap:12px; align-items:center; }
-        header h1 { font-size:18px; margin:0 8px 0 0; }
-        header .hint { color:#666; font-size:13px; }
-        .container { display:grid; grid-template-columns:380px 1fr; height:calc(100vh - 60px); }
-        .left { border-right:1px solid #eee; padding:12px; overflow:auto; }
-        .left h2 { margin:6px 0 10px; font-size:16px; }
-        .search-box { display:flex; margin-bottom:10px; gap:6px; }
-        .search-box input { flex:1; padding:6px; border:1px solid #ccc; border-radius:6px; }
-        .search-box button { padding:6px 12px; border:none; background:#333; color:#fff; border-radius:6px; cursor:pointer; }
-        .results { margin-top:12px; display:grid; gap:12px; }
+        /* --- 🎨 변수 및 기본 스타일 --- */
+        :root {
+            --primary-color: #007aff;
+            --background-color: #f8f9fa;
+            --surface-color: #ffffff;
+            --text-color: #212529;
+            --text-muted-color: #6c757d;
+            --border-color: #dee2e6;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+            --border-radius-md: 12px;
+            --border-radius-sm: 8px;
+        }
 
-        /* 카드 스타일 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+        }
+
+        /* --- 🎨 헤더 --- */
+        header {
+            padding: 14px 24px;
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 20px;
+            color: var(--text-color);
+            margin: 0;
+        }
+
+        header .hint {
+            color: var(--text-muted-color);
+            font-size: 14px;
+        }
+
+        /* --- 🎨 레이아웃 --- */
+        .container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            height: calc(100vh - 60px);
+        }
+
+        .left {
+            background-color: var(--surface-color);
+            border-right: 1px solid var(--border-color);
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .left h2 {
+            margin: 0 0 12px;
+            font-size: 18px;
+        }
+
+        /* --- 🎨 검색창 --- */
+        .search-box {
+            display: flex;
+            margin-bottom: 16px;
+            gap: 8px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-sm);
+            font-size: 15px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        }
+
+        .search-box button {
+            padding: 10px 16px;
+            border: none;
+            background: var(--primary-color);
+            color: #fff;
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .search-box button:hover {
+            background-color: #0056b3;
+        }
+
+        .results {
+            margin-top: 12px;
+            display: grid;
+            gap: 16px;
+        }
+
+        /* --- 🃏 카드 스타일 --- */
         .card {
-            border-radius:12px;
-            background:#fff;
-            box-shadow:0 4px 12px rgba(0,0,0,0.08);
-            padding:12px;
-            cursor:pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            border-radius: var(--border-radius-md);
+            background: var(--surface-color);
+            box-shadow: var(--shadow-sm);
+            padding: 16px;
+            cursor: pointer;
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s;
+            border: 2px solid transparent;
             display:flex;
             flex-direction:column;
             gap:8px;
         }
-        .card:hover { transform: translateY(-4px); box-shadow:0 8px 20px rgba(0,0,0,0.15); }
-        .card h3 { margin:0; font-size:16px; color:#333; }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* JavaScript에서 사용하는 active 클래스를 위한 스타일 */
+        .card.active {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        }
+
+        .card h3 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 600;
+            color: #333;
+        }
+
         .card-images { display:flex; gap:6px; flex-wrap:wrap; }
         .card-images img { width:80px; height:60px; border-radius:6px; object-fit:cover; cursor:pointer; transition: transform 0.2s, border 0.2s; border:2px solid transparent; }
         .card-images img:hover { transform: scale(1.1); }
         .card-images img.selected { border:2px solid #007aff; }
 
-        /* 맵 및 페이징 */
-        .map { position:relative; }
-        #map { width:100%; height:100%; min-height:420px; }
-        .pagination { display:flex; gap:4px; margin:8px 0; flex-wrap:wrap; }
-        .pagination button { padding:4px 6px; border:none; border-radius:4px; background:none; cursor:pointer; font-size:12px; color:#333; }
-        .pagination button.active { font-weight:bold; text-decoration:underline; color:#000; }
 
-        /* 모달 */
-        #imgModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:999; }
-        #imgModal.show { display:flex; }
-        #imgModal img { max-width:90%; max-height:90%; border-radius:8px; transform: scale(0.9); transition: transform 0.3s; }
-        #imgModal.show img { transform: scale(1); }
-        #imgModal .close { position:absolute; top:20px; right:30px; font-size:24px; color:white; cursor:pointer; }
+        /* --- 🗺️ 맵 및 페이징 --- */
+        .map { position: relative; }
+        #map { width: 100%; height: 100%; min-height:420px; }
 
-        /* 인포윈도우 새 디자인 */
+        .pagination {
+            display: flex;
+            gap: 6px;
+            margin: 20px 0 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-sm);
+            background: var(--surface-color);
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-color);
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+
+        .pagination button:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+
+        .pagination button.active {
+            font-weight: bold;
+            background-color: var(--primary-color);
+            color: #fff;
+            border-color: var(--primary-color);
+        }
+
+        /* --- 🖼️ 모달 --- */
+        #imgModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        #imgModal.show { display: flex; }
+
+        #imgModal img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: var(--border-radius-sm);
+            transform: scale(0.95);
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+        }
+
+        #imgModal.show img {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        #imgModal .close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 30px;
+            font-weight: 300;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s, color 0.2s;
+            line-height: 1;
+        }
+        #imgModal .close:hover {
+            transform: scale(1.2);
+            color: #ff453a;
+        }
+
+        /* --- ℹ️ 인포윈도우 (수정된 부분) --- */
         .custom-infowindow {
-            font-family:Pretendard, Arial, sans-serif;
-            background:#fff;
-            border-radius:12px;
-            box-shadow:0 8px 20px rgba(0,0,0,0.25);
-            padding:12px 16px;
-            max-width:350px;
-            display:flex;
-            flex-direction:column;
-            gap:8px;
+            font-family: Pretendard, Arial, sans-serif;
+            position: relative;
+            background: var(--surface-color);
+            border-radius: var(--border-radius-md);
+            box-shadow: var(--shadow-md); /* 카드와 유사한 그림자 */
+            padding: 16px;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* 내부 간격 조정 */
+            /* filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); 꼬리까지 그림자 적용 원할 시 */
         }
-        .custom-infowindow strong { font-size:18px; color:#222; }
-        .custom-infowindow p { margin:0; font-size:14px; color:#555; line-height:1.4; }
-        .custom-infowindow .infowindow-images { display:flex; gap:6px; margin-top:6px; }
+
+        /* 인포윈도우 꼬리 만들기 */
+        .custom-infowindow::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid var(--surface-color);
+        }
+
+        .custom-infowindow strong {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-color);
+            line-height: 1.3;
+        }
+
+        .custom-infowindow p {
+            margin: 0;
+            font-size: 14px;
+            color: var(--text-muted-color);
+            line-height: 1.5;
+        }
+
+        .custom-infowindow .infowindow-images {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
         .custom-infowindow .infowindow-images img {
-            width:120px; height:90px; border-radius:6px; object-fit:cover; cursor:pointer;
-            transition: transform 0.2s, border 0.2s; border:2px solid transparent;
+            width: 100%; /* 너비를 꽉 채우도록 변경 */
+            height: 90px;
+            border-radius: var(--border-radius-sm);
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid var(--border-color);
         }
-        .custom-infowindow .infowindow-images img:hover { transform: scale(1.05); }
-        .custom-infowindow .infowindow-images img.selected { border:2px solid #007aff; }
+
+        .custom-infowindow .infowindow-images img:hover {
+            transform: scale(1.05);
+            box-shadow: var(--shadow-md);
+        }
+        .custom-infowindow .infowindow-images img.selected {
+            border:2px solid var(--primary-color);
+        }
+
     </style>
 </head>
 <body>
 <header>
     <h1>관광 명소 찾기</h1>
-    <span class="hint">Kakao Maps + 이미지 확대</span>
+    <span class="hint">    </span>
 </header>
 <div class="container">
     <aside class="left">
