@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>관광 명소 찾기 </title>
+    <title>관광 명소 찾기</title>
     <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4caaf2cb0e09303d4dd13d3fb5ff15e9&autoload=false&libraries=services,clusterer"></script>
     <style>
         * { box-sizing: border-box; }
@@ -52,43 +52,33 @@
         #imgModal.show img { transform: scale(1); }
         #imgModal .close { position:absolute; top:20px; right:30px; font-size:24px; color:white; cursor:pointer; }
 
-        /* 인포윈도우 스타일 - 말풍선 + 가로 넓게 */
+        /* 인포윈도우 새 디자인 */
         .custom-infowindow {
-            font-family: Pretendard, Arial, sans-serif;
-            position: relative;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-            padding: 12px;
-            max-width: 350px;
-            display: flex;
-            gap: 12px;
+            font-family:Pretendard, Arial, sans-serif;
+            background:#fff;
+            border-radius:12px;
+            box-shadow:0 8px 20px rgba(0,0,0,0.25);
+            padding:12px 16px;
+            max-width:350px;
+            display:flex;
+            flex-direction:column;
+            gap:8px;
         }
-        .custom-infowindow::after {
-            content: "";
-            position: absolute;
-            bottom: -12px;
-            left: 30px;
-            border-width: 12px 12px 0;
-            border-style: solid;
-            border-color: #fff transparent transparent transparent;
-        }
-        .custom-infowindow .info-text { flex:1; display:flex; flex-direction:column; gap:4px; }
-        .custom-infowindow strong { font-size:16px; color:#222; }
-        .custom-infowindow p { margin:0; font-size:13px; color:#555; }
+        .custom-infowindow strong { font-size:18px; color:#222; }
+        .custom-infowindow p { margin:0; font-size:14px; color:#555; line-height:1.4; }
         .custom-infowindow .infowindow-images { display:flex; gap:6px; margin-top:6px; }
         .custom-infowindow .infowindow-images img {
-            width:90px; height:70px; border-radius:6px; object-fit:cover; cursor:pointer;
+            width:120px; height:90px; border-radius:6px; object-fit:cover; cursor:pointer;
             transition: transform 0.2s, border 0.2s; border:2px solid transparent;
         }
-        .custom-infowindow .infowindow-images img:hover { transform: scale(1.1); }
+        .custom-infowindow .infowindow-images img:hover { transform: scale(1.05); }
         .custom-infowindow .infowindow-images img.selected { border:2px solid #007aff; }
     </style>
 </head>
 <body>
 <header>
     <h1>관광 명소 찾기</h1>
-    <span class="hint"></span>
+    <span class="hint">Kakao Maps + 이미지 확대</span>
 </header>
 <div class="container">
     <aside class="left">
@@ -128,6 +118,7 @@
         const pageSize = 10;
         let currentQuery = "";
         let activeCard = null;
+        const imageCache = {}; // 이미지 캐싱
 
         $modalClose.onclick = () => $imgModal.classList.remove("show");
         $imgModal.onclick = (e) => { if(e.target === $imgModal) $imgModal.classList.remove("show"); }
@@ -135,18 +126,20 @@
         function clearMarkers(arr){ arr.forEach(m=>m.setMap(null)); arr.length=0; }
 
         async function fetchImages(title){
+            if(imageCache[title]) return imageCache[title];
             const serviceKey = "490dff3a74450adae8e1524024697a4e35ce97f3bb37436d4be589e01bcd36a5";
             const keyword = title.slice(4,6);
-            const url = `https://apis.data.go.kr/B551011/KorService2/searchKeyword2?serviceKey=${serviceKey}&MobileOS=ETC&MobileApp=AppTest&_type=json&keyword=${encodeURIComponent(keyword)}&numOfRows=3&pageNo=1`;
+            const url = `https://apis.data.go.kr/B551011/KorService2/searchKeyword2?serviceKey=${serviceKey}&MobileOS=ETC&MobileApp=AppTest&_type=json&keyword=${encodeURIComponent(keyword)}&numOfRows=2&pageNo=1`;
             try{
                 const res = await fetch(url);
                 const data = await res.json();
                 const items = data?.response?.body?.items?.item;
-                if(!items) return ["/img/default.jpg"];
                 const arr = Array.isArray(items)?items:[items];
                 const imgs = arr.map(i=>i.firstimage||i.firstimage2).filter(Boolean);
-                return imgs.length ? imgs.slice(0,3) : ["/img/default.jpg"];
-            }catch(e){ console.error("이미지 불러오기 실패",e); return ["/img/default.jpg"]; }
+                const result = imgs.length ? imgs.slice(0,2) : ["/img/default.jpg"];
+                imageCache[title] = result;
+                return result;
+            }catch(e){ console.error(e); return ["/img/default.jpg"]; }
         }
 
         async function loadTravelData(page=1, query=""){
@@ -191,48 +184,45 @@
                         activeCard = card;
                         card.classList.add("active");
 
-                        // 주변 관광지 마커
+                        // 주변 관광지 표시
                         clearMarkers(nearbyMarkers);
                         const nearby = await fetchNearby(t.lat,t.lng,5);
                         for(const n of nearby){
                             if(n.lat && n.lng){
-                                const m = new kakao.maps.Marker({
-                                    position: new kakao.maps.LatLng(n.lat,n.lng),
-                                    image: new kakao.maps.MarkerImage(
-                                        'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_blue.png',
-                                        new kakao.maps.Size(24,35)
-                                    )
-                                });
+                                const m = new kakao.maps.Marker({ position: new kakao.maps.LatLng(n.lat,n.lng) });
                                 m.setMap(map);
                                 nearbyMarkers.push(m);
 
                                 const nImgs = await fetchImages(n.title);
                                 const iwContent = `<div class="custom-infowindow">
-                                <div class="info-text">
-                                    <strong>${n.title}</strong>
-                                    <p>${n.description || ""}</p>
-                                    <p>📍 ${n.address}</p>
-                                    <p>☎ ${n.phone || "-"}</p>
-                                    <div class="infowindow-images">${nImgs.map(url=>`<img src="${url}" alt="${n.title}">`).join('')}</div>
-                                </div>
-                            </div>`;
-                                kakao.maps.event.addListener(m,'click',()=>{ infowindow.setContent(iwContent); infowindow.open(map,m); });
+                            <strong>${n.title}</strong>
+                            <p>${n.description||""}</p>
+                            <p>📍 ${n.address}</p>
+                            <p>☎ ${n.phone||"-"}</p>
+                            <div class="infowindow-images">${nImgs.map(url=>`<img src="${url}" alt="${n.title}">`).join('')}</div>
+                        </div>`;
+                                kakao.maps.event.addListener(m,'click',()=>{
+                                    infowindow.setContent(iwContent);
+                                    infowindow.open(map,m);
+                                    const imgs = document.querySelectorAll(".custom-infowindow img");
+                                    imgs.forEach(img=>img.onclick = ()=>{ $modalImg.src = img.src; $imgModal.classList.add("show"); });
+                                });
                             }
                         }
 
-                        // 선택 관광지 인포윈도우
                         const tImgs = await fetchImages(t.title);
                         const iwContent = `<div class="custom-infowindow">
-                        <div class="info-text">
-                            <strong>${t.title}</strong>
-                            <p>${t.description || ""}</p>
-                            <p>📍 ${t.address}</p>
-                            <p>☎ ${t.phone || "-"}</p>
-                            <div class="infowindow-images">${tImgs.map(url=>`<img src="${url}" alt="${t.title}">`).join('')}</div>
-                        </div>
-                    </div>`;
+                    <strong>${t.title}</strong>
+                    <p>${t.description||""}</p>
+                    <p>📍 ${t.address}</p>
+                    <p>☎ ${t.phone||"-"}</p>
+                    <div class="infowindow-images">${tImgs.map(url=>`<img src="${url}" alt="${t.title}">`).join('')}</div>
+                </div>`;
                         infowindow.setContent(iwContent);
                         infowindow.open(map,marker);
+                        const imgs = document.querySelectorAll(".custom-infowindow img");
+                        imgs.forEach(img=>img.onclick = ()=>{ $modalImg.src = img.src; $imgModal.classList.add("show"); });
+
                         map.setCenter(pos);
                     };
 
